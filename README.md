@@ -25,11 +25,11 @@ Local streaming voice dictation for [pi](https://github.com/earendil-works/pi-co
 pi install git:github.com/jbfly/pi-voice
 ```
 
-then `cd` into the installed extension dir and fetch the models + deps:
+then fetch the models in the managed checkout. For a user install this is usually:
 
 ```sh
+cd ~/.pi/agent/git/github.com/jbfly/pi-voice
 ./fetch-models.sh   # downloads the two sherpa-onnx models into ./models/
-npm install         # pulls sherpa-onnx-node (native bindings)
 ```
 
 ### Manual (local clone for hacking)
@@ -54,7 +54,7 @@ Not shipped (≈700 MB total, and they're upstream Apache-2.0 weights). `fetch-m
 | `sherpa-onnx-nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25` | ~650 MB | streaming ASR engine |
 | `sherpa-onnx-online-punct-en-2024-08-06` | ~38 MB | live re-punctuation + casing |
 
-If a download URL 404s, the tarballs are catalogued at the [sherpa-onnx pretrained models index](https://k2-fsa.github.io/sherpa/onnx/pretrained_models/index.html); drop the two dirs above into `models/` and you're set.
+If a download URL 404s, the ASR tarballs are catalogued at the [sherpa-onnx pretrained ASR models index](https://k2-fsa.github.io/sherpa/onnx/pretrained_models/index.html), and the punctuation tarball is listed in the [sherpa-onnx punctuation models index](https://k2-fsa.github.io/sherpa/onnx/punctuation/pretrained_models.html). Drop the two dirs above into `models/` and you're set.
 
 ## Usage
 

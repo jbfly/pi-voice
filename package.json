@@ -3,7 +3,41 @@
   "version": "0.1.0",
   "private": false,
   "description": "Local streaming voice dictation for pi — sherpa-onnx streaming Nemotron on CPU, live re-punctuation, push-to-talk or hotkey, optional SSH mic capture.",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "voice-dictation",
+    "speech-to-text",
+    "sherpa-onnx"
+  ],
   "license": "Apache-2.0",
+  "homepage": "https://github.com/jbfly/pi-voice#readme",
+  "bugs": {
+    "url": "https://github.com/jbfly/pi-voice/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jbfly/pi-voice.git"
+  },
+  "files": [
+    "index.ts",
+    "fetch-models.sh",
+    "construct-check.js",
+    "partial-probe.js",
+    "smoketest.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "index.ts"
+    ]
+  },
+  "scripts": {
+    "check:syntax": "bash -n fetch-models.sh && node --check construct-check.js && node --check partial-probe.js && node --check smoketest.js",
+    "check:package": "npm pack --dry-run",
+    "test": "npm run check:syntax"
+  },
   "dependencies": {
     "sherpa-onnx-node": "^1.13.3"
   }

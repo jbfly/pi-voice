@@ -14,7 +14,8 @@ have() { [ -d "models/$1" ] && [ -n "$(ls -A "models/$1" 2>/dev/null)" ]; }
 
 ASR_DIR="sherpa-onnx-nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25"
 PUNCT_DIR="sherpa-onnx-online-punct-en-2024-08-06"
-GH="https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models"
+ASR_GH="https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models"
+PUNCT_GH="https://github.com/k2-fsa/sherpa-onnx/releases/download/punctuation-models"
 
 dl() {  # dl <url> <out>
   if command -v wget >/dev/null 2>&1; then wget -O "$2" "$1"
@@ -23,14 +24,14 @@ dl() {  # dl <url> <out>
 
 if ! have "$ASR_DIR"; then
   echo ">> downloading $ASR_DIR (~650 MB)"
-  dl "$GH/$ASR_DIR.tar.bz2" "/tmp/$ASR_DIR.tar.bz2"
+  dl "$ASR_GH/$ASR_DIR.tar.bz2" "/tmp/$ASR_DIR.tar.bz2"
   tar -xjf "/tmp/$ASR_DIR.tar.bz2" -C models
   rm -f "/tmp/$ASR_DIR.tar.bz2"
 else echo ">> $ASR_DIR already present, skipping"; fi
 
 if ! have "$PUNCT_DIR"; then
   echo ">> downloading $PUNCT_DIR (~38 MB)"
-  dl "$GH/$PUNCT_DIR.tar.bz2" "/tmp/$PUNCT_DIR.tar.bz2"
+  dl "$PUNCT_GH/$PUNCT_DIR.tar.bz2" "/tmp/$PUNCT_DIR.tar.bz2"
   tar -xjf "/tmp/$PUNCT_DIR.tar.bz2" -C models
   rm -f "/tmp/$PUNCT_DIR.tar.bz2"
 else echo ">> $PUNCT_DIR already present, skipping"; fi
