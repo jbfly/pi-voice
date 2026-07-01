@@ -15,6 +15,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { spawn, type ChildProcess } from "node:child_process";
+import { existsSync } from "node:fs";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const sherpa = require("sherpa-onnx-node");
 
@@ -43,6 +44,7 @@ export default function voiceDictation(pi: ExtensionAPI): void {
   let rec: ChildProcess | undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
   let unsubKeys: (() => void) | undefined;
+  let starting = false;
   let finals = "";
   let partial = "";
   let recording = false;
@@ -79,6 +81,56 @@ export default function voiceDictation(pi: ExtensionAPI): void {
       enableEndpoint: true,
       rule1MinTrailingSilence: 3.5, rule2MinTrailingSilence: 1.6, rule3MinUtteranceLength: 30,
     });
+  }
+
+  const modelFiles = () => [
+    `${MODELS}/encoder.int8.onnx`,
+    `${MODELS}/decoder.int8.onnx`,
+    `${MODELS}/joiner.int8.onnx`,
+    `${MODELS}/tokens.txt`,
+  ];
+
+  const hasModels = () => modelFiles().every(existsSync);
+
+  async function fetchModels(c: ExtensionContext): Promise<boolean> {
+    const script = _path.join(__dirname, "fetch-models.sh");
+    if (!existsSync(script)) {
+      try { c.ui.notify("voice: missing models and fetch-models.sh is not installed", "error"); } catch {}
+      return false;
+    }
+    if (process.env.PI_VOICE_MODELS || process.env.PI_VOICE_PUNCT) {
+      try { c.ui.notify("voice: model env path is missing; unset PI_VOICE_MODELS/PI_VOICE_PUNCT or fix the path", "error"); } catch {}
+      return false;
+    }
+    try {
+      c.ui.notify("voice: downloading models (~700 MB); first run may take a while", "info");
+      c.ui.setStatus("voice", c.ui.theme.fg("accent", "voice: downloading models"));
+    } catch {}
+    return await new Promise<boolean>((resolve) => {
+      let tail = "";
+      let done = false;
+      const finish = (ok: boolean, msg?: string) => {
+        if (done) return;
+        done = true;
+        try { c.ui.setStatus("voice", undefined); } catch {}
+        if (!ok) try { c.ui.notify(`voice: model download failed${msg ? `: ${msg}` : ""}`, "error"); } catch {}
+        resolve(ok);
+      };
+      const remember = (b: Buffer) => { tail = (tail + b.toString()).slice(-2000); };
+      const dl = spawn("bash", [script], { cwd: __dirname, stdio: ["ignore", "pipe", "pipe"] });
+      dl.stdout?.on("data", remember);
+      dl.stderr?.on("data", remember);
+      dl.on("error", (e) => finish(false, e.message));
+      dl.on("close", (code) => finish(code === 0, code === 0 ? undefined : (tail.trim() || `exit ${code}`)));
+    });
+  }
+
+  async function ensureModels(c: ExtensionContext): Promise<boolean> {
+    if (hasModels()) return true;
+    if (!(await fetchModels(c))) return false;
+    const ok = hasModels();
+    if (!ok) try { c.ui.notify("voice: model download finished, but expected files are still missing", "error"); } catch {}
+    return ok;
   }
 
   function buildPunct(): void {
@@ -172,29 +224,36 @@ export default function voiceDictation(pi: ExtensionAPI): void {
     }
   }
 
-  function start(c: ExtensionContext): void {
-    if (recording) return;
+  async function start(c: ExtensionContext, hold = false): Promise<void> {
+    if (recording || starting) return;
     if (!uiOk(c) || c.mode !== "tui") return;
     ctxRef = c;
-    try { buildRecognizer(); buildPunct(); } catch (e) {
-      try { c.ui.notify("voice: failed to load model — " + (e as Error).message, "error"); } catch {}
-      return;
+    starting = true;
+    try {
+      if (!(await ensureModels(c))) return;
+      try { buildRecognizer(); buildPunct(); } catch (e) {
+        try { c.ui.notify("voice: failed to load model — " + (e as Error).message, "error"); } catch {}
+        return;
+      }
+      try { prefix = c.ui.getEditorText(); } catch { prefix = ""; }
+      sep = prefix && !prefix.endsWith(" ") ? " " : "";
+      recording = true; finals = ""; partial = ""; vu = 0; shownText = ""; lastPunct = 0;
+      stream = recognizer.createStream();
+      const args = ["--rate=16000", "--channels=1", "--format=s16", "--raw"];
+      if (MIC_TARGET) args.push(`--target=${MIC_TARGET}`);
+      args.push("-");
+      const remote = captureHost.split(/\s+/).filter(Boolean);
+      rec = remote.length
+        ? spawn("ssh", [...remote, "pw-record", ...args], { stdio: ["ignore", "pipe", "ignore"] })
+        : spawn("pw-record", args, { stdio: ["ignore", "pipe", "ignore"] });
+      rec.stdout?.on("data", (chunk: Buffer) => { try { feed(chunk); } catch { /* keep streaming */ } });
+      rec.on("error", () => { try { ctxRef?.ui.notify("voice: pw-record failed", "error"); } catch {} stop(false); });
+      if (!timer) timer = setInterval(render, 50);
+      render();
+      if (hold) armRelease(INITIAL_RELEASE_MS);
+    } finally {
+      starting = false;
     }
-    try { prefix = c.ui.getEditorText(); } catch { prefix = ""; }
-    sep = prefix && !prefix.endsWith(" ") ? " " : "";
-    recording = true; finals = ""; partial = ""; vu = 0; shownText = ""; lastPunct = 0;
-    stream = recognizer.createStream();
-    const args = ["--rate=16000", "--channels=1", "--format=s16", "--raw"];
-    if (MIC_TARGET) args.push(`--target=${MIC_TARGET}`);
-    args.push("-");
-    const remote = captureHost.split(/\s+/).filter(Boolean);
-    rec = remote.length
-      ? spawn("ssh", [...remote, "pw-record", ...args], { stdio: ["ignore", "pipe", "ignore"] })
-      : spawn("pw-record", args, { stdio: ["ignore", "pipe", "ignore"] });
-    rec.stdout?.on("data", (chunk: Buffer) => { try { feed(chunk); } catch { /* keep streaming */ } });
-    rec.on("error", () => { try { ctxRef?.ui.notify("voice: pw-record failed", "error"); } catch {} stop(false); });
-    if (!timer) timer = setInterval(render, 50);
-    render();
   }
 
   function stop(insert: boolean): void {
@@ -231,7 +290,7 @@ export default function voiceDictation(pi: ExtensionAPI): void {
 
   function toggle(c: ExtensionContext): void {
     ctxRef = c; pttActive = false;
-    if (recording) stop(true); else start(c);
+    if (recording) stop(true); else void start(c);
   }
 
   function armRelease(ms: number): void {
@@ -259,8 +318,7 @@ export default function voiceDictation(pi: ExtensionAPI): void {
     try { cur = c.ui.getEditorText(); } catch { return undefined; }
     if (cur !== "" && cur !== committedText) return undefined; // your own draft => normal space
     pttActive = true; sawRepeat = false; lastSpace = now;
-    start(c);
-    if (recording) armRelease(INITIAL_RELEASE_MS);
+    void start(c, true);
     return { consume: true };
   }
 

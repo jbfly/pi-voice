@@ -25,7 +25,7 @@ Local streaming voice dictation for [pi](https://github.com/earendil-works/pi-co
 pi install git:github.com/jbfly/pi-voice
 ```
 
-then fetch the models in the managed checkout. For a user install this is usually:
+The first `/voice` run downloads the models into the managed checkout automatically. To prefetch them manually:
 
 ```sh
 cd ~/.pi/agent/git/github.com/jbfly/pi-voice
@@ -37,7 +37,6 @@ cd ~/.pi/agent/git/github.com/jbfly/pi-voice
 ```sh
 git clone https://github.com/jbfly/pi-voice ~/git/pi-voice
 cd ~/git/pi-voice
-./fetch-models.sh
 npm install
 # point pi at it — symlink into its extensions dir under the name "voice":
 ln -s ~/git/pi-voice ~/.pi/agent/extensions/voice
