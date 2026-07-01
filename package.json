@@ -1,0 +1,10 @@
+{
+  "name": "pi-voice",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Local streaming voice dictation for pi — sherpa-onnx streaming Nemotron on CPU, live re-punctuation, push-to-talk or hotkey, optional SSH mic capture.",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "sherpa-onnx-node": "^1.13.3"
+  }
+}
